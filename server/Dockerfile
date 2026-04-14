@@ -10,4 +10,6 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm build
 
-CMD ["node", "dist/seed.js"]
+EXPOSE 3001
+
+CMD ["sh", "-c", "node dist/seed.js && node dist/main.js"]
