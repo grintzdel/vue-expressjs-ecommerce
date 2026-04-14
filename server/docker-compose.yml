@@ -13,11 +13,11 @@ services:
     depends_on:
       - mongo
     environment:
-      - PORT=3001
-      - MONGODB_URI=mongodb://mongo:27017/ecommerce
-      - JWT_SECRET=your-secret-key-change-in-production
-      - JWT_EXPIRES_IN=24h
-      - CLIENT_URL=https://vue-expressjs-ecommerce.maoudin.com
+      - PORT=${PORT:-3001}
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongo:27017/ecommerce}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
+      - CLIENT_URL=${CLIENT_URL}
 
 volumes:
   mongo-data:
