@@ -1,0 +1,5 @@
+export const PAGE_CONSTANTS = {
+  TITLE_MIN_LENGTH: 2,
+  TITLE_MAX_LENGTH: 200,
+  CONTENT_MAX_LENGTH: 50000,
+} as const;

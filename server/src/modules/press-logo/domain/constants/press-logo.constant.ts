@@ -1,0 +1,5 @@
+export const PRESS_LOGO_CONSTANTS = {
+  NAME_MIN_LENGTH: 1,
+  NAME_MAX_LENGTH: 100,
+  POSITION_MIN: 0,
+} as const;

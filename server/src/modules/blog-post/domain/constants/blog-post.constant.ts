@@ -1,0 +1,5 @@
+export const BLOG_POST_CONSTANTS = {
+  TITLE_MIN_LENGTH: 2,
+  TITLE_MAX_LENGTH: 200,
+  EXCERPT_MAX_LENGTH: 500,
+} as const;

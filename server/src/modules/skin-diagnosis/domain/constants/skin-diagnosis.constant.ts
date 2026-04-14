@@ -1,0 +1,3 @@
+export const SKIN_DIAGNOSIS_CONSTANTS = {
+  SESSION_TOKEN_LENGTH: 36,
+} as const;
