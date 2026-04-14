@@ -12,4 +12,5 @@ RUN pnpm build
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "node dist/seed.js && node dist/main.js"]
+# Wait for MongoDB to be ready, then seed and start
+CMD ["sh", "-c", "sleep 5 && node dist/seed.js; node dist/main.js"]
