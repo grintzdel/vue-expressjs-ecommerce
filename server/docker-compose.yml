@@ -6,5 +6,12 @@ services:
     volumes:
       - mongo-data:/data/db
 
+  seed:
+    build: .
+    depends_on:
+      - mongo
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/ecommerce
+
 volumes:
   mongo-data:
