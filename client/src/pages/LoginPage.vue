@@ -12,7 +12,8 @@ async function handleLogin() {
   error.value = ''
   loading.value = true
   try {
-    const res = await fetch('/api/auth/login', {
+    const apiBase = import.meta.env.VITE_API_URL || '/api'
+    const res = await fetch(`${apiBase}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email.value, password: password.value }),

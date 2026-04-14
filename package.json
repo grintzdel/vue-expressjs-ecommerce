@@ -7,10 +7,7 @@
     "dev:client": "cd client && pnpm run dev",
     "build": "cd client && pnpm build && cd ../server && pnpm build",
     "seed": "cd server && pnpm run seed",
-    "test:server": "cd server && pnpm test",
-    "deploy": "docker compose up -d --build && sleep 5 && docker compose exec app node server/dist/seed.js",
-    "docker:up": "docker compose up -d --build",
-    "docker:down": "docker compose down"
+    "test:server": "cd server && pnpm test"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
