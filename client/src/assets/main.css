@@ -5,8 +5,35 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --background: 90 18% 93%;       /* #EDF1E8 - bg-primary */
+    --foreground: 0 0% 10%;          /* #1A1A1A - font-primary */
+    --card: 0 0% 100%;               /* white */
+    --card-foreground: 0 0% 10%;     /* #1A1A1A */
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 97 22% 35%;           /* #5C7045 - accent-green */
+    --primary-foreground: 0 0% 100%; /* white */
+    --secondary: 90 18% 93%;         /* #EDF1E8 - bg-primary */
+    --secondary-foreground: 0 0% 10%;
+    --muted: 90 14% 85%;             /* #D5DCCC - bg-light-sage */
+    --muted-foreground: 0 0% 48%;    /* #7A7A7A - font-tertiary */
+    --accent: 90 14% 85%;            /* #D5DCCC */
+    --accent-foreground: 97 26% 25%; /* #3D4F2F - bg-dark */
+    --destructive: 0 60% 52%;        /* #C94444 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 90 18% 76%;            /* #C5CDB9 - border-light */
+    --input: 90 18% 76%;             /* #C5CDB9 */
+    --ring: 97 22% 35%;              /* #5C7045 - accent-green */
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
   body {
-    @apply font-body text-font-primary bg-cream;
+    @apply bg-background text-foreground font-body;
   }
 
   h1, h2, h3, h4, h5, h6 {
