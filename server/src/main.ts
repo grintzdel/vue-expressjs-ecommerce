@@ -18,6 +18,7 @@ import { createSkinDiagnosisModule } from "./modules/skin-diagnosis/skin-diagnos
 import { createCartModule } from "./modules/cart/cart.module";
 import { createPressLogoModule } from "./modules/press-logo/press-logo.module";
 import { createOrderModule } from "./modules/order/order.module";
+import { createAnalyticsModule } from "./modules/analytics/analytics.module";
 
 dotenv.config();
 
@@ -49,6 +50,7 @@ app.use("/api/skin-diagnosis", createSkinDiagnosisModule());
 app.use("/api/cart", createCartModule());
 app.use("/api/press-logos", createPressLogoModule());
 app.use("/api/orders", createOrderModule());
+app.use("/api/analytics", createAnalyticsModule());
 
 app.use(errorHandlerMiddleware);
 

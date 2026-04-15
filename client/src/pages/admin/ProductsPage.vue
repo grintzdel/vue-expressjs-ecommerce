@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useApi } from '@/composables/useApi'
 
 interface Category {
@@ -59,6 +59,11 @@ const tags = ref<Tag[]>([])
 const skinTypes = ref<SkinType[]>([])
 const loading = ref(false)
 const showModal = ref(false)
+const search = ref('')
+const filterCategory = ref('')
+const filterStatus = ref('')
+const activeDropdown = ref<string | null>(null)
+
 const editingItem = ref<EditingProduct>({
   name: '', slug: '', description: '', price: 0, currency: 'EUR',
   images: [], categoryId: '', tagIds: [], skinTypeIds: [], stockQuantity: 0, isFeatured: false,
@@ -66,6 +71,23 @@ const editingItem = ref<EditingProduct>({
 })
 const newImageUrl = ref('')
 const newImageAlt = ref('')
+
+const filteredProducts = computed(() => {
+  let result = products.value
+  if (search.value) {
+    const q = search.value.toLowerCase()
+    result = result.filter(p => p.name.toLowerCase().includes(q))
+  }
+  if (filterCategory.value) {
+    result = result.filter(p => p.categoryId === filterCategory.value)
+  }
+  if (filterStatus.value === 'active') {
+    result = result.filter(p => p.stockQuantity > 0)
+  } else if (filterStatus.value === 'out') {
+    result = result.filter(p => p.stockQuantity === 0)
+  }
+  return result
+})
 
 function addImage() {
   if (!newImageUrl.value.trim()) return
@@ -143,6 +165,7 @@ function openAdd() {
 }
 
 function openEdit(item: Product) {
+  activeDropdown.value = null
   editingItem.value = {
     ...item,
     images: item.images ? item.images.map(img => ({ ...img })) : [],
@@ -170,300 +193,221 @@ async function handleSave() {
 }
 
 async function handleDelete(item: Product) {
-  if (!confirm(`Delete product "${item.name}"?`)) return
+  activeDropdown.value = null
+  if (!confirm(`Supprimer le produit "${item.name}" ?`)) return
   await api.del(`/products/${item.id}`)
   await fetchAll()
+}
+
+function toggleDropdown(id: string) {
+  activeDropdown.value = activeDropdown.value === id ? null : id
 }
 
 onMounted(fetchAll)
 </script>
 
 <template>
-  <div class="p-2xl">
+  <div class="p-6" @click="activeDropdown = null">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-xl">
-      <h1 class="font-heading text-subsection text-font-primary">Products</h1>
-      <div class="flex items-center gap-md">
-        <a href="/shop" target="_blank" class="btn-outline !py-sm !px-lg">View Shop</a>
-        <button class="btn-primary" @click="openAdd">+ Add Product</button>
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="font-heading text-[28px] font-bold text-font-primary">Produits</h1>
+        <p class="text-sm font-body text-font-secondary mt-1">Gérez votre catalogue de produits</p>
       </div>
+      <button class="flex items-center gap-2 bg-accent-green text-white font-body text-sm font-medium px-5 py-2.5 rounded-lg hover:opacity-90 transition" @click="openAdd">
+        + Ajouter
+      </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex items-center gap-3 mb-6 flex-wrap">
+      <div class="flex items-center gap-2 bg-white border border-border-light rounded-lg h-9 px-3 w-[300px]">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-font-tertiary flex-shrink-0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input v-model="search" type="text" placeholder="Rechercher..." class="bg-transparent border-none outline-none text-sm font-body text-font-primary w-full" />
+      </div>
+      <select v-model="filterCategory" class="bg-white border border-border-light rounded-lg h-9 px-3 text-sm font-body text-font-primary outline-none">
+        <option value="">Toutes catégories</option>
+        <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+      </select>
+      <select v-model="filterStatus" class="bg-white border border-border-light rounded-lg h-9 px-3 text-sm font-body text-font-primary outline-none">
+        <option value="">Tous statuts</option>
+        <option value="active">En stock</option>
+        <option value="out">Rupture</option>
+      </select>
+      <span class="text-[13px] font-body text-font-tertiary">{{ filteredProducts.length }} produits</span>
     </div>
 
     <!-- Loading -->
-    <p v-if="loading" class="font-body text-sm text-font-secondary">Loading...</p>
+    <p v-if="loading" class="font-body text-sm text-font-secondary py-10 text-center">Chargement...</p>
 
     <!-- Table -->
-    <div v-else class="bg-white rounded-lg shadow-sm border border-border-light overflow-hidden">
-      <table class="w-full">
-        <thead class="bg-bg-primary">
-          <tr>
-            <th class="px-lg py-md text-left text-xs uppercase tracking-wide text-font-tertiary">Image</th>
-            <th class="px-lg py-md text-left text-xs uppercase tracking-wide text-font-tertiary">Name</th>
-            <th class="px-lg py-md text-left text-xs uppercase tracking-wide text-font-tertiary">Price</th>
-            <th class="px-lg py-md text-left text-xs uppercase tracking-wide text-font-tertiary">Category</th>
-            <th class="px-lg py-md text-left text-xs uppercase tracking-wide text-font-tertiary">Stock</th>
-            <th class="px-lg py-md text-left text-xs uppercase tracking-wide text-font-tertiary">Featured</th>
-            <th class="px-lg py-md text-left text-xs uppercase tracking-wide text-font-tertiary">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="products.length === 0">
-            <td colspan="7" class="px-lg py-2xl text-center font-body text-sm text-font-tertiary">
-              No items found
-            </td>
-          </tr>
-          <tr
-            v-for="product in products"
-            :key="product.id"
-            class="border-b border-border-light last:border-0"
+    <div v-else class="bg-white rounded-xl border border-border-light overflow-hidden">
+      <!-- Header -->
+      <div class="flex items-center gap-3 h-9 px-5 bg-white text-[11px] font-semibold uppercase tracking-[0.5px] font-body text-font-tertiary">
+        <span class="w-[60px]">Image</span>
+        <span class="flex-1">NOM</span>
+        <span class="w-[120px]">CATÉGORIE</span>
+        <span class="w-[80px]">PRIX</span>
+        <span class="w-[80px]">STOCK</span>
+        <span class="w-[90px]">STATUT</span>
+        <span class="w-[70px]">ACTIONS</span>
+      </div>
+
+      <div v-if="filteredProducts.length === 0" class="px-5 py-10 text-center font-body text-sm text-font-tertiary">
+        Aucun produit trouvé
+      </div>
+
+      <!-- Rows -->
+      <div
+        v-for="(product, i) in filteredProducts"
+        :key="product.id"
+        class="flex items-center gap-3 h-[52px] px-5 border-b border-border-light last:border-0 hover:bg-[#F0F5EB] transition-colors"
+      >
+        <!-- Image -->
+        <div class="w-[60px] flex-shrink-0">
+          <img
+            v-if="product.images && product.images.length > 0"
+            :src="product.images[0].url"
+            :alt="product.images[0].altText"
+            class="w-10 h-10 object-cover rounded-lg"
+          />
+          <div v-else class="w-10 h-10 bg-bg-light-sage rounded-lg" />
+        </div>
+
+        <!-- Name -->
+        <div class="flex-1 min-w-0">
+          <p class="text-[13px] font-body font-medium text-font-primary truncate">{{ product.name }}</p>
+          <p class="text-[11px] font-body text-font-tertiary truncate">{{ getCategoryName(product.categoryId) }}</p>
+        </div>
+
+        <!-- Category -->
+        <span class="w-[120px] text-[11px] font-body text-font-secondary truncate">{{ getCategoryName(product.categoryId) }}</span>
+
+        <!-- Price -->
+        <span class="w-[80px] text-[13px] font-body font-semibold text-font-primary">€{{ product.price.toFixed(2) }}</span>
+
+        <!-- Stock -->
+        <span class="w-[80px] text-[13px] font-body text-font-primary">{{ product.stockQuantity }}</span>
+
+        <!-- Status -->
+        <div class="w-[90px] flex justify-center">
+          <span
+            class="text-[11px] font-semibold font-body px-2.5 py-1 rounded-full"
+            :class="product.stockQuantity > 0
+              ? 'bg-[#E8F0E0] text-[#4A5E3A]'
+              : 'bg-[#FFEBEE] text-[#C94444]'"
           >
-            <td class="px-lg py-md">
-              <img
-                v-if="product.images && product.images.length > 0"
-                :src="product.images[0].url"
-                :alt="product.images[0].altText"
-                class="w-12 h-12 object-cover rounded-md"
-              />
-              <div v-else class="w-12 h-12 bg-bg-light-sage rounded-md flex items-center justify-center text-font-tertiary text-xs">
-                No img
-              </div>
-            </td>
-            <td class="px-lg py-md text-sm text-font-primary font-semibold">{{ product.name }}</td>
-            <td class="px-lg py-md text-sm text-font-secondary">
-              {{ product.price }} {{ product.currency }}
-            </td>
-            <td class="px-lg py-md text-sm text-font-secondary">
-              {{ product.category?.name ?? getCategoryName(product.categoryId) }}
-            </td>
-            <td class="px-lg py-md text-sm text-font-secondary">{{ product.stockQuantity }}</td>
-            <td class="px-lg py-md">
-              <span
-                v-if="product.isFeatured"
-                class="inline-block px-sm py-xs text-xs font-semibold bg-bg-light-sage text-accent-green rounded-sm"
-              >Featured</span>
-              <span v-else class="text-sm text-font-tertiary">—</span>
-            </td>
-            <td class="px-lg py-md">
-              <div class="flex items-center gap-sm">
-                <a
-                  :href="`/product/${product.slug}`"
-                  target="_blank"
-                  class="text-xs font-body text-accent-green hover:text-accent-green-light underline"
-                >View</a>
-                <button
-                  class="text-xs font-body text-font-secondary hover:text-font-primary underline"
-                  @click="openEdit(product)"
-                >Edit</button>
-                <button
-                  class="text-xs font-body text-red-500 hover:text-red-700 underline"
-                  @click="handleDelete(product)"
-                >Delete</button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            {{ product.stockQuantity > 0 ? 'Actif' : 'Rupture' }}
+          </span>
+        </div>
+
+        <!-- Actions -->
+        <div class="w-[70px] flex justify-center relative">
+          <button class="p-1 text-font-tertiary hover:text-font-primary" @click.stop="toggleDropdown(product.id)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+          </button>
+          <div
+            v-if="activeDropdown === product.id"
+            class="absolute right-0 top-8 z-20 bg-white border border-border-light rounded-lg shadow-lg py-1.5 w-[170px]"
+            @click.stop
+          >
+            <a
+              :href="`/product/${product.slug}`"
+              target="_blank"
+              class="block px-4 py-2 text-sm font-body text-font-primary hover:bg-bg-primary transition"
+            >Voir</a>
+            <button
+              class="block w-full text-left px-4 py-2 text-sm font-body text-font-primary hover:bg-bg-primary transition"
+              @click="openEdit(product)"
+            >Modifier</button>
+            <button
+              class="block w-full text-left px-4 py-2 text-sm font-body text-[#C94444] hover:bg-bg-primary transition"
+              @click="handleDelete(product)"
+            >Supprimer</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Modal -->
-    <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-md">
+    <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div class="absolute inset-0 bg-black/40" @click="showModal = false"></div>
-      <div class="relative bg-white rounded-lg shadow-xl w-full max-w-[560px] max-h-[90vh] overflow-y-auto p-2xl">
-        <h2 class="font-heading text-subsection text-font-primary mb-xl">
-          {{ editingItem.id ? 'Edit' : 'Add' }} Product
+      <div class="relative bg-white rounded-xl shadow-xl w-full max-w-[560px] max-h-[90vh] overflow-y-auto p-6">
+        <h2 class="font-heading text-xl font-bold text-font-primary mb-6">
+          {{ editingItem.id ? 'Modifier' : 'Ajouter' }} un produit
         </h2>
 
-        <div class="space-y-lg">
+        <div class="space-y-4">
           <!-- Name -->
           <div>
-            <label class="block font-body text-xs font-semibold tracking-[1px] uppercase text-font-tertiary mb-sm">
-              Name
-            </label>
-            <input
-              type="text"
-              :value="editingItem.name"
-              @input="onNameInput(($event.target as HTMLInputElement).value)"
-              class="w-full h-[44px] px-md bg-white border border-border-light rounded-md font-body text-sm text-font-primary focus:outline-none focus:border-border-dark"
-              placeholder="Product name"
-            />
+            <label class="block font-body text-[11px] font-semibold tracking-[0.5px] uppercase text-font-tertiary mb-1.5">Nom</label>
+            <input type="text" :value="editingItem.name" @input="onNameInput(($event.target as HTMLInputElement).value)" class="w-full h-11 px-3 bg-white border border-border-light rounded-lg font-body text-sm text-font-primary focus:outline-none focus:border-font-tertiary" placeholder="Nom du produit" />
           </div>
 
           <!-- Slug -->
           <div>
-            <label class="block font-body text-xs font-semibold tracking-[1px] uppercase text-font-tertiary mb-sm">
-              Slug
-            </label>
-            <input
-              type="text"
-              v-model="editingItem.slug"
-              class="w-full h-[44px] px-md bg-white border border-border-light rounded-md font-body text-sm text-font-primary focus:outline-none focus:border-border-dark"
-              placeholder="product-slug"
-            />
+            <label class="block font-body text-[11px] font-semibold tracking-[0.5px] uppercase text-font-tertiary mb-1.5">Slug</label>
+            <input type="text" v-model="editingItem.slug" class="w-full h-11 px-3 bg-white border border-border-light rounded-lg font-body text-sm text-font-primary focus:outline-none focus:border-font-tertiary" />
           </div>
 
           <!-- Description -->
           <div>
-            <label class="block font-body text-xs font-semibold tracking-[1px] uppercase text-font-tertiary mb-sm">
-              Description
-            </label>
-            <textarea
-              v-model="editingItem.description"
-              rows="3"
-              class="w-full px-md py-sm bg-white border border-border-light rounded-md font-body text-sm text-font-primary focus:outline-none focus:border-border-dark resize-none"
-              placeholder="Product description"
-            />
+            <label class="block font-body text-[11px] font-semibold tracking-[0.5px] uppercase text-font-tertiary mb-1.5">Description</label>
+            <textarea v-model="editingItem.description" rows="3" class="w-full px-3 py-2 bg-white border border-border-light rounded-lg font-body text-sm text-font-primary focus:outline-none focus:border-font-tertiary resize-none" />
           </div>
 
           <!-- Images -->
           <div>
-            <label class="block font-body text-xs font-semibold tracking-[1px] uppercase text-font-tertiary mb-sm">
-              Images
-            </label>
-
-            <!-- Existing images -->
-            <div v-if="editingItem.images.length > 0" class="flex flex-wrap gap-md mb-md">
-              <div
-                v-for="(img, index) in editingItem.images"
-                :key="index"
-                class="relative group w-[100px]"
-              >
-                <img
-                  :src="img.url"
-                  :alt="img.altText"
-                  class="w-[100px] h-[100px] object-cover rounded-md border border-border-light"
-                />
-                <div class="absolute inset-0 bg-black/50 rounded-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-xs">
-                  <button
-                    v-if="index > 0"
-                    @click="moveImage(index, -1)"
-                    class="w-6 h-6 bg-white rounded-full text-xs flex items-center justify-center"
-                    title="Move left"
-                  >←</button>
-                  <button
-                    @click="removeImage(index)"
-                    class="w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center"
-                    title="Remove"
-                  >✕</button>
-                  <button
-                    v-if="index < editingItem.images.length - 1"
-                    @click="moveImage(index, 1)"
-                    class="w-6 h-6 bg-white rounded-full text-xs flex items-center justify-center"
-                    title="Move right"
-                  >→</button>
+            <label class="block font-body text-[11px] font-semibold tracking-[0.5px] uppercase text-font-tertiary mb-1.5">Images</label>
+            <div v-if="editingItem.images.length > 0" class="flex flex-wrap gap-2 mb-2">
+              <div v-for="(img, index) in editingItem.images" :key="index" class="relative group w-[80px]">
+                <img :src="img.url" :alt="img.altText" class="w-[80px] h-[80px] object-cover rounded-lg border border-border-light" />
+                <div class="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                  <button v-if="index > 0" @click="moveImage(index, -1)" class="w-5 h-5 bg-white rounded-full text-[10px] flex items-center justify-center">←</button>
+                  <button @click="removeImage(index)" class="w-5 h-5 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center">✕</button>
+                  <button v-if="index < editingItem.images.length - 1" @click="moveImage(index, 1)" class="w-5 h-5 bg-white rounded-full text-[10px] flex items-center justify-center">→</button>
                 </div>
-                <span class="absolute top-1 left-1 bg-bg-dark text-font-light text-[10px] px-1 rounded">
-                  {{ index + 1 }}
-                </span>
               </div>
             </div>
-
-            <!-- Add image form -->
-            <div class="flex flex-col gap-sm">
-              <div class="flex gap-sm">
-                <input
-                  v-model="newImageUrl"
-                  type="url"
-                  placeholder="Image URL (https://...)"
-                  class="flex-1 h-[40px] px-md bg-white border border-border-light rounded-md font-body text-sm text-font-primary focus:outline-none focus:border-border-dark"
-                  @keydown.enter.prevent="addImage"
-                />
-                <button
-                  type="button"
-                  class="h-[40px] px-md bg-bg-primary text-font-green font-body text-sm rounded-md border border-border-light hover:bg-bg-light-sage transition-colors"
-                  @click="addImage"
-                >
-                  + Add
-                </button>
-              </div>
-              <input
-                v-model="newImageAlt"
-                type="text"
-                placeholder="Alt text (optional)"
-                class="w-full h-[36px] px-md bg-white border border-border-light rounded-md font-body text-xs text-font-secondary focus:outline-none focus:border-border-dark"
-              />
+            <div class="flex gap-2">
+              <input v-model="newImageUrl" type="url" placeholder="URL de l'image" class="flex-1 h-9 px-3 bg-white border border-border-light rounded-lg font-body text-sm focus:outline-none focus:border-font-tertiary" @keydown.enter.prevent="addImage" />
+              <button type="button" class="h-9 px-3 bg-bg-primary font-body text-sm rounded-lg border border-border-light hover:bg-bg-light-sage transition" @click="addImage">+ Ajouter</button>
             </div>
-
-            <p v-if="editingItem.images.length === 0" class="font-body text-xs text-font-tertiary mt-sm">
-              No images added yet. Paste an image URL above.
-            </p>
           </div>
 
           <!-- Price & Currency -->
-          <div class="grid grid-cols-2 gap-md">
+          <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block font-body text-xs font-semibold tracking-[1px] uppercase text-font-tertiary mb-sm">
-                Price
-              </label>
-              <input
-                type="number"
-                v-model="editingItem.price"
-                min="0"
-                step="0.01"
-                class="w-full h-[44px] px-md bg-white border border-border-light rounded-md font-body text-sm text-font-primary focus:outline-none focus:border-border-dark"
-                placeholder="0.00"
-              />
+              <label class="block font-body text-[11px] font-semibold tracking-[0.5px] uppercase text-font-tertiary mb-1.5">Prix</label>
+              <input type="number" v-model="editingItem.price" min="0" step="0.01" class="w-full h-11 px-3 bg-white border border-border-light rounded-lg font-body text-sm focus:outline-none focus:border-font-tertiary" />
             </div>
             <div>
-              <label class="block font-body text-xs font-semibold tracking-[1px] uppercase text-font-tertiary mb-sm">
-                Currency
-              </label>
-              <input
-                type="text"
-                v-model="editingItem.currency"
-                class="w-full h-[44px] px-md bg-white border border-border-light rounded-md font-body text-sm text-font-primary focus:outline-none focus:border-border-dark"
-                placeholder="EUR"
-              />
+              <label class="block font-body text-[11px] font-semibold tracking-[0.5px] uppercase text-font-tertiary mb-1.5">Devise</label>
+              <input type="text" v-model="editingItem.currency" class="w-full h-11 px-3 bg-white border border-border-light rounded-lg font-body text-sm focus:outline-none focus:border-font-tertiary" />
             </div>
           </div>
 
           <!-- Category -->
           <div>
-            <label class="block font-body text-xs font-semibold tracking-[1px] uppercase text-font-tertiary mb-sm">
-              Category
-            </label>
-            <select
-              v-model="editingItem.categoryId"
-              class="w-full h-[44px] px-md bg-white border border-border-light rounded-md font-body text-sm text-font-primary focus:outline-none focus:border-border-dark"
-            >
-              <option value="">— None —</option>
-              <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-                {{ cat.name }}
-              </option>
+            <label class="block font-body text-[11px] font-semibold tracking-[0.5px] uppercase text-font-tertiary mb-1.5">Catégorie</label>
+            <select v-model="editingItem.categoryId" class="w-full h-11 px-3 bg-white border border-border-light rounded-lg font-body text-sm focus:outline-none focus:border-font-tertiary">
+              <option value="">— Aucune —</option>
+              <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
             </select>
           </div>
 
           <!-- Stock -->
           <div>
-            <label class="block font-body text-xs font-semibold tracking-[1px] uppercase text-font-tertiary mb-sm">
-              Stock Quantity
-            </label>
-            <input
-              type="number"
-              v-model="editingItem.stockQuantity"
-              min="0"
-              class="w-full h-[44px] px-md bg-white border border-border-light rounded-md font-body text-sm text-font-primary focus:outline-none focus:border-border-dark"
-              placeholder="0"
-            />
+            <label class="block font-body text-[11px] font-semibold tracking-[0.5px] uppercase text-font-tertiary mb-1.5">Stock</label>
+            <input type="number" v-model="editingItem.stockQuantity" min="0" class="w-full h-11 px-3 bg-white border border-border-light rounded-lg font-body text-sm focus:outline-none focus:border-font-tertiary" />
           </div>
 
           <!-- Tags -->
           <div v-if="tags.length > 0">
-            <label class="block font-body text-xs font-semibold tracking-[1px] uppercase text-font-tertiary mb-sm">
-              Tags
-            </label>
-            <div class="flex flex-wrap gap-sm">
-              <label
-                v-for="tag in tags"
-                :key="tag.id"
-                class="flex items-center gap-xs cursor-pointer font-body text-sm text-font-secondary"
-              >
-                <input
-                  type="checkbox"
-                  :value="tag.id"
-                  :checked="editingItem.tagIds.includes(tag.id)"
-                  @change="toggleId(editingItem.tagIds, tag.id)"
-                  class="accent-accent-green"
-                />
+            <label class="block font-body text-[11px] font-semibold tracking-[0.5px] uppercase text-font-tertiary mb-1.5">Tags</label>
+            <div class="flex flex-wrap gap-2">
+              <label v-for="tag in tags" :key="tag.id" class="flex items-center gap-1.5 cursor-pointer font-body text-sm text-font-secondary">
+                <input type="checkbox" :checked="editingItem.tagIds.includes(tag.id)" @change="toggleId(editingItem.tagIds, tag.id)" class="accent-accent-green" />
                 {{ tag.name }}
               </label>
             </div>
@@ -471,83 +415,43 @@ onMounted(fetchAll)
 
           <!-- Skin Types -->
           <div v-if="skinTypes.length > 0">
-            <label class="block font-body text-xs font-semibold tracking-[1px] uppercase text-font-tertiary mb-sm">
-              Skin Types
-            </label>
-            <div class="flex flex-wrap gap-sm">
-              <label
-                v-for="st in skinTypes"
-                :key="st.id"
-                class="flex items-center gap-xs cursor-pointer font-body text-sm text-font-secondary"
-              >
-                <input
-                  type="checkbox"
-                  :value="st.id"
-                  :checked="editingItem.skinTypeIds.includes(st.id)"
-                  @change="toggleId(editingItem.skinTypeIds, st.id)"
-                  class="accent-accent-green"
-                />
+            <label class="block font-body text-[11px] font-semibold tracking-[0.5px] uppercase text-font-tertiary mb-1.5">Types de peau</label>
+            <div class="flex flex-wrap gap-2">
+              <label v-for="st in skinTypes" :key="st.id" class="flex items-center gap-1.5 cursor-pointer font-body text-sm text-font-secondary">
+                <input type="checkbox" :checked="editingItem.skinTypeIds.includes(st.id)" @change="toggleId(editingItem.skinTypeIds, st.id)" class="accent-accent-green" />
                 {{ st.name }}
               </label>
             </div>
           </div>
 
           <!-- Featured -->
-          <div>
-            <label class="flex items-center gap-sm cursor-pointer font-body text-sm text-font-primary">
-              <input
-                type="checkbox"
-                v-model="editingItem.isFeatured"
-                class="accent-accent-green w-4 h-4"
-              />
-              Featured product
-            </label>
-          </div>
+          <label class="flex items-center gap-2 cursor-pointer font-body text-sm text-font-primary">
+            <input type="checkbox" v-model="editingItem.isFeatured" class="accent-accent-green w-4 h-4" />
+            Produit vedette
+          </label>
 
           <!-- Ingredients -->
           <div>
-            <label class="block font-body text-xs font-semibold tracking-[1px] uppercase text-font-tertiary mb-sm">
-              Ingredients
-            </label>
-            <textarea
-              v-model="editingItem.ingredients"
-              rows="4"
-              class="w-full px-md py-sm bg-white border border-border-light rounded-md font-body text-sm text-font-primary focus:outline-none focus:border-border-dark resize-none"
-              placeholder="One ingredient per line (e.g. Aloe Vera — Hydrates and soothes skin)"
-            />
-            <p class="font-body text-xs text-font-tertiary mt-xs">One per line. Use — to separate name and description.</p>
+            <label class="block font-body text-[11px] font-semibold tracking-[0.5px] uppercase text-font-tertiary mb-1.5">Ingrédients</label>
+            <textarea v-model="editingItem.ingredients" rows="3" class="w-full px-3 py-2 bg-white border border-border-light rounded-lg font-body text-sm focus:outline-none focus:border-font-tertiary resize-none" />
           </div>
 
           <!-- How to Use -->
           <div>
-            <label class="block font-body text-xs font-semibold tracking-[1px] uppercase text-font-tertiary mb-sm">
-              How to Use
-            </label>
-            <textarea
-              v-model="editingItem.howToUse"
-              rows="3"
-              class="w-full px-md py-sm bg-white border border-border-light rounded-md font-body text-sm text-font-primary focus:outline-none focus:border-border-dark resize-none"
-              placeholder="Usage instructions for the product"
-            />
+            <label class="block font-body text-[11px] font-semibold tracking-[0.5px] uppercase text-font-tertiary mb-1.5">Mode d'emploi</label>
+            <textarea v-model="editingItem.howToUse" rows="3" class="w-full px-3 py-2 bg-white border border-border-light rounded-lg font-body text-sm focus:outline-none focus:border-font-tertiary resize-none" />
           </div>
 
           <!-- Shipping Info -->
           <div>
-            <label class="block font-body text-xs font-semibold tracking-[1px] uppercase text-font-tertiary mb-sm">
-              Shipping Info
-            </label>
-            <textarea
-              v-model="editingItem.shippingInfo"
-              rows="3"
-              class="w-full px-md py-sm bg-white border border-border-light rounded-md font-body text-sm text-font-primary focus:outline-none focus:border-border-dark resize-none"
-              placeholder="Shipping and returns policy"
-            />
+            <label class="block font-body text-[11px] font-semibold tracking-[0.5px] uppercase text-font-tertiary mb-1.5">Livraison</label>
+            <textarea v-model="editingItem.shippingInfo" rows="3" class="w-full px-3 py-2 bg-white border border-border-light rounded-lg font-body text-sm focus:outline-none focus:border-font-tertiary resize-none" />
           </div>
         </div>
 
-        <div class="flex justify-end gap-md mt-2xl">
-          <button class="btn-outline !py-sm !px-lg" @click="showModal = false">Cancel</button>
-          <button class="btn-primary !py-sm !px-lg" @click="handleSave">Save</button>
+        <div class="flex justify-end gap-3 mt-6">
+          <button class="px-5 py-2.5 rounded-lg border border-border-light font-body text-sm text-font-primary hover:bg-bg-primary transition" @click="showModal = false">Annuler</button>
+          <button class="px-5 py-2.5 rounded-lg bg-accent-green text-white font-body text-sm font-medium hover:opacity-90 transition" @click="handleSave">Enregistrer</button>
         </div>
       </div>
     </div>
